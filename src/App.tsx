@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Pokemon {
+  id: number;
   name: string;
   sprites: {
     other: {
@@ -15,6 +16,14 @@ interface Pokemon {
       name: string;
     };
   }>;
+  stats: Array<{
+    base_stat: number;
+    stat: {
+      name: string;
+    };
+  }>;
+  height: number;
+  weight: number;
 }
 
 function App() {
@@ -23,17 +32,13 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const searchPokemon = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!search.trim()) return;
-
+  const fetchPokemon = async (identifier: string | number) => {
     setLoading(true);
     setError('');
-    setPokemon(null);
 
     try {
       const response = await fetch(
-        `https://pokeapi.co/api/v2/pokemon/${search.toLowerCase()}`
+        `https://pokeapi.co/api/v2/pokemon/${identifier.toString().toLowerCase()}`
       );
       if (!response.ok) throw new Error('Pokémon no encontrado');
       const data = await response.json();
@@ -43,6 +48,20 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const searchPokemon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!search.trim()) return;
+    setPokemon(null);
+    await fetchPokemon(search);
+  };
+
+  const navigatePokemon = async (direction: 'prev' | 'next') => {
+    if (!pokemon) return;
+    const newId = direction === 'prev' ? pokemon.id - 1 : pokemon.id + 1;
+    if (newId < 1) return;
+    await fetchPokemon(newId);
   };
 
   const getTypeColor = (type: string) => {
@@ -69,6 +88,14 @@ function App() {
     return colors[type] || 'bg-gray-400';
   };
 
+  const getStatColor = (statValue: number) => {
+    if (statValue >= 150) return 'bg-purple-500';
+    if (statValue >= 100) return 'bg-blue-500';
+    if (statValue >= 70) return 'bg-green-500';
+    if (statValue >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
   const getTypeTranslated = (type: string) => {
     const tipos: { [key: string]: string } = {
       normal: 'normal',
@@ -93,12 +120,24 @@ function App() {
     return tipos[type] || type;
   };
 
+  const formatStatName = (stat: string) => {
+    const translations: { [key: string]: string } = {
+      'hp': 'PS',
+      'attack': 'Ataque',
+      'defense': 'Defensa',
+      'special-attack': 'At. Esp.',
+      'special-defense': 'Def. Esp.',
+      'speed': 'Velocidad'
+    };
+    return translations[stat] || stat;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-yellow-600 flex items-center justify-center p-4">
       <div className="bg-white/90 backdrop-blur-sm w-full max-w-md rounded-2xl shadow-xl p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Pokédex</h1>
-          <p className="text-gray-600">Se mostará la imagen y tipos del Pokémon</p>
+          <p className="text-gray-600">Introduce el nombre o número del Pokémon</p>
         </div>
 
         <form onSubmit={searchPokemon} className="relative">
@@ -106,7 +145,7 @@ function App() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Introduce el Pokémon..."
+            placeholder="Nombre o número del Pokémon..."
             className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none pr-10"
           />
           <button
@@ -132,32 +171,78 @@ function App() {
         )}
 
         {pokemon && (
-          <div className="space-y-4">
-            <div className="relative">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => navigatePokemon('prev')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                disabled={pokemon.id === 1}
+              >
+                <ChevronLeft size={24} className={pokemon.id === 1 ? 'text-gray-300' : 'text-gray-600'} />
+              </button>
+              <div className="text-center">
+                <span className="text-sm text-gray-500">#{pokemon.id.toString().padStart(3, '0')}</span>
+                <h2 className="text-2xl font-bold text-gray-800 capitalize">
+                  {pokemon.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => navigatePokemon('next')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ChevronRight size={24} className="text-gray-600" />
+              </button>
+            </div>
+
+            <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-white/20 rounded-xl" />
               <img
                 src={pokemon.sprites.other['official-artwork'].front_default}
                 alt={pokemon.name}
-                className="w-full h-64 object-contain rounded-xl"
+                className="w-full h-64 object-contain rounded-xl transform transition-transform group-hover:scale-105"
               />
             </div>
             
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-gray-800 capitalize mb-2">
-                {pokemon.name}
-              </h2>
-              <div className="flex gap-2 justify-center">
-                {pokemon.types.map((type) => (
-                  <span
-                    key={type.type.name}
-                    className={`${getTypeColor(
-                      type.type.name
-                    )} text-white px-3 py-1 rounded-full text-sm font-medium capitalize`}
-                  >
-                    {getTypeTranslated(type.type.name)}
-                  </span>
-                ))}
+            <div className="flex gap-2 justify-center">
+              {pokemon.types.map((type) => (
+                <span
+                  key={type.type.name}
+                  className={`${getTypeColor(
+                    type.type.name
+                  )} text-white px-3 py-1 rounded-full text-sm font-medium capitalize`}
+                >
+                  {getTypeTranslated(type.type.name)}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-sm text-gray-500">Altura</p>
+                <p className="font-semibold">{pokemon.height / 10} m</p>
               </div>
+              <div className="bg-gray-50 p-2 rounded-lg">
+                <p className="text-sm text-gray-500">Peso</p>
+                <p className="font-semibold">{pokemon.weight / 10} kg</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-700">Estadísticas</h3>
+              {pokemon.stats.map((stat) => (
+                <div key={stat.stat.name} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">{formatStatName(stat.stat.name)}</span>
+                    <span className="font-medium">{stat.base_stat}</span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${getStatColor(stat.base_stat)} transition-all duration-500`}
+                      style={{ width: `${Math.min((stat.base_stat / 255) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
