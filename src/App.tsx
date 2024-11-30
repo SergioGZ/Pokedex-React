@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Xenon } from 'uvcanvas';
 
 interface Pokemon {
   id: number;
@@ -133,7 +134,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-yellow-600 flex items-center justify-center p-4">
+    <div className="min-h-screen relative flex items-center justify-center p-4">
+      <div className="fixed inset-0 -z-10">
+        <Xenon />
+        <div className="absolute inset-0 bg-black/30" />
+      </div>
       <div className="bg-white/90 backdrop-blur-sm w-full max-w-md rounded-2xl shadow-xl p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Pokédex</h1>
